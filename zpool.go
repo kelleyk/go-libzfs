@@ -410,6 +410,9 @@ func PoolImportByGUID(guid string, searchpaths []string) (pool Pool, err error) 
 // anymore. Call Pool.Close() method.
 func PoolOpenAll() (pools []Pool, err error) {
 	var pool Pool
+	if libzfsHandle == nil {
+		return pools, fmt.Errorf("libzfs unitialized, missing privs?")
+	}
 	errcode := C.zpool_list(libzfsHandle, &pool.list)
 	for pool.list != nil {
 		err = pool.ReloadProperties()
