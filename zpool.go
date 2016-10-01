@@ -73,18 +73,18 @@ type VDevStat struct {
 	Fragmentation  uint64           /* device fragmentation */
 }
 
-// PoolScanStat - Pool scan statistics
+// PoolScanStat - Pool scan statistics.  Corresponds to `pool_scan_stat_t` in `include/sys/fs/zfs.h`.
 type PoolScanStat struct {
 	// Values stored on disk
-	Func      uint64 // Current scan function e.g. none, scrub ...
-	State     uint64 // Current scan state e.g. scanning, finished ...
-	StartTime uint64 // Scan start time
-	EndTime   uint64 // Scan end time
-	ToExamine uint64 // Total bytes to scan
-	Examined  uint64 // Total bytes scaned
-	ToProcess uint64 // Total bytes to processed
-	Processed uint64 // Total bytes processed
-	Errors    uint64 // Scan errors
+	Func      PoolScanFunc // Current scan function e.g. none, scrub ...
+	State     DSLScanState // Current scan state e.g. scanning, finished ...
+	StartTime uint64       // Scan start time [@KK TODO: convert to time.Duration?]
+	EndTime   uint64       // Scan end time [@KK TODO: convert to time.Duration?]
+	ToExamine uint64       // Total bytes to scan
+	Examined  uint64       // Total bytes scaned
+	ToProcess uint64       // Total bytes to processed
+	Processed uint64       // Total bytes processed
+	Errors    uint64       // Scan errors
 	// Values not stored on disk
 	PassExam  uint64 // Examined bytes per scan pass
 	PassStart uint64 // Start time of scan pass
@@ -188,8 +188,8 @@ func poolGetConfig(name string, nv *C.nvlist_t) (vdevs VDevTree, err error) {
 	// Fetch vdev scan stats
 	if 0 == C.nvlist_lookup_uint64_array_ps(nv, C.sZPOOL_CONFIG_SCAN_STATS,
 		&ps, &c) {
-		vdevs.ScanStat.Func = uint64(ps.pss_func)
-		vdevs.ScanStat.State = uint64(ps.pss_state)
+		vdevs.ScanStat.Func = PoolScanFunc(ps.pss_func)
+		vdevs.ScanStat.State = DSLScanState(ps.pss_state)
 		vdevs.ScanStat.StartTime = uint64(ps.pss_start_time)
 		vdevs.ScanStat.EndTime = uint64(ps.pss_end_time)
 		vdevs.ScanStat.ToExamine = uint64(ps.pss_to_examine)
@@ -466,8 +466,11 @@ func (pool *Pool) RefreshStats() (err error) {
 // ReloadProperties re-read ZFS pool properties and features, refresh
 // Pool.Properties and Pool.Features map
 func (pool *Pool) ReloadProperties() (err error) {
-	propList := C.read_zpool_properties(pool.list.zph)
+	zph := pool.list.zph
+	propList := C.read_zpool_properties(zph)
+	// log.Printf("YYY reloadprop 0a")
 	if propList == nil {
+		// log.Printf("YYY reloadprop 0b")
 		err = LastError()
 		return
 	}
@@ -499,6 +502,7 @@ func (pool *Pool) ReloadProperties() (err error) {
 			// tolerate it
 		}
 	}
+
 	return
 }
 
@@ -951,50 +955,4 @@ func (pool *Pool) VDevTree() (vdevs VDevTree, err error) {
 		return
 	}
 	return poolGetConfig(poolName, nvroot)
-}
-
-func (s PoolState) String() string {
-	switch s {
-	case PoolStateActive:
-		return "ACTIVE"
-	case PoolStateExported:
-		return "EXPORTED"
-	case PoolStateDestroyed:
-		return "DESTROYED"
-	case PoolStateSpare:
-		return "SPARE"
-	case PoolStateL2cache:
-		return "L2CACHE"
-	case PoolStateUninitialized:
-		return "UNINITIALIZED"
-	case PoolStateUnavail:
-		return "UNAVAILABLE"
-	case PoolStatePotentiallyActive:
-		return "POTENTIALLYACTIVE"
-	default:
-		return "UNKNOWN"
-	}
-}
-
-func (s VDevState) String() string {
-	switch s {
-	case VDevStateUnknown:
-		return "UNINITIALIZED"
-	case VDevStateClosed:
-		return "CLOSED"
-	case VDevStateOffline:
-		return "OFFLINE"
-	case VDevStateRemoved:
-		return "REMOVED"
-	case VDevStateCantOpen:
-		return "CANT_OPEN"
-	case VDevStateFaulted:
-		return "FAULTED"
-	case VDevStateDegraded:
-		return "DEGRADED"
-	case VDevStateHealthy:
-		return "ONLINE"
-	default:
-		return "UNKNOWN"
-	}
 }

@@ -190,3 +190,5 @@ func ExampleDatasetOpenAll() {
 	}
 
 }
+
+// @KK: test that .Pool() doesn't cause a segfault due to a nil ptr
