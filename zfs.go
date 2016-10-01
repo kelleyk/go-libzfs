@@ -8,6 +8,7 @@ import "C"
 
 import (
 	"errors"
+	"fmt"
 	"unsafe"
 )
 
@@ -36,10 +37,11 @@ const (
 
 // Dataset - ZFS dataset object
 type Dataset struct {
-	list       *C.dataset_list_t
-	Type       DatasetType
-	Properties map[Prop]Property
-	Children   []Dataset
+	list           *C.dataset_list_t
+	Type           DatasetType
+	Properties     map[Prop]Property
+	UserProperties map[string]Property
+	Children       []Dataset
 }
 
 func (d *Dataset) openChildren() (err error) {
@@ -74,6 +76,7 @@ func DatasetOpenAll() (datasets []Dataset, err error) {
 	var dataset Dataset
 	errcode := C.dataset_list_root(libzfsHandle, &dataset.list)
 	for dataset.list != nil {
+
 		dataset.Type = DatasetType(C.zfs_get_type(dataset.list.zh))
 		err = dataset.ReloadProperties()
 		if err != nil {
@@ -123,6 +126,7 @@ func DatasetOpen(path string) (d Dataset, err error) {
 	return
 }
 
+// @KK: XXX: can we deprecate this?
 func datasetPropertiesTonvlist(props map[Prop]Property) (
 	cprops *C.nvlist_t, err error) {
 	// convert properties to nvlist C type
@@ -254,7 +258,54 @@ func (d *Dataset) ReloadProperties() (err error) {
 		d.Properties[prop] = Property{Value: C.GoString(&(*plist).value[0]),
 			Source: C.GoString(&(*plist).source[0])}
 	}
+
+	if err := d.reloadUserProperties(); err != nil {
+		return err
+	}
+
 	return
+}
+
+func (d *Dataset) reloadUserProperties() error {
+	var srcStr string
+	dPath, err := d.Path()
+	if err != nil {
+		return err
+	}
+
+	d.UserProperties = make(map[string]Property)
+
+	l := (*NVList)(C.zfs_get_user_props(d.list.zh))
+
+	var p *NVPair
+	for {
+		p = l.Next(p)
+		if p == nil {
+			break
+		}
+
+		pVal := p.Value().(*NVList)
+
+		valPair := pVal.Next(nil)
+		srcPair := pVal.Next(valPair)
+		if pVal.Next(srcPair) != nil {
+			return fmt.Errorf("expected length-2 nvlist for user property")
+		}
+
+		if valPair.ValueString() == dPath {
+			srcStr = "local"
+		} else {
+			// XXX: I believe there is another case or two; see libzfs
+			srcStr = "inherited"
+		}
+
+		d.UserProperties[p.Name()] = Property{
+			Value:  valPair.ValueString(),
+			Source: srcStr,
+		}
+	}
+
+	return nil
 }
 
 // GetProperty reload and return single specified property. This also reloads requested
@@ -432,6 +483,31 @@ func (d *Dataset) UnmountAll(flags int) (err error) {
 		err = LastError()
 	}
 	return
+}
+
+type PropertyCallback func(propID Prop, propName string, prop Property) error
+
+// VisitProperties invokes the callback on this dataset's properties in order.
+//
+// TODO: User properties are presently visited in no particular order.
+//
+func (d *Dataset) VisitProperties(cb PropertyCallback) (err error) {
+	for propID := Prop(0); propID < DatasetNumProps; propID++ {
+		propName := DatasetPropertyToName(propID)
+		if prop, ok := d.Properties[propID]; ok {
+			if err := cb(propID, propName, prop); err != nil {
+				return err
+			}
+		}
+	}
+
+	for propName, prop := range d.UserProperties {
+		if err := cb(PropInvalid, propName, prop); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // DatasetPropertyToName convert property to name

@@ -9,6 +9,10 @@
 package zfs
 
 /*
+@KK: XXX: GET RID OF ALL OF THESE "= iota" CONSTS IN FAVOR OF USING CONSTS DEFINED IN LIBZFS HEADERS
+*/
+
+/*
 #cgo CFLAGS: -I /usr/include/libzfs -I /usr/include/libspl -DHAVE_IOCTL_IN_SYS_IOCTL_H
 #cgo LDFLAGS: -lzfs -lzpool -lnvpair
 
@@ -22,6 +26,12 @@ import "C"
 import (
 	"errors"
 )
+
+// Property ZFS pool or dataset property value
+type Property struct {
+	Value  string
+	Source string
+}
 
 // VDevType type of device in the pool
 type VDevType string
@@ -49,7 +59,7 @@ const (
 )
 
 // Prop type to enumerate all different properties suppoerted by ZFS
-type Prop int
+type Prop C.zfs_prop_t
 
 // PoolStatus represents the status of a zpool.
 type PoolStatus int
@@ -240,66 +250,67 @@ func (s VDevState) String() string {
 }
 
 // VDevAux - vdev aux states
-type VDevAux uint64
+type VDevAux C.vdev_aux_t
 
 // vdev aux states.  When a vdev is in the VDevStateCantOpen state, the aux field
 // of the vdev stats structure uses these constants to distinguish why.
 const (
-	VDevAuxNone         VDevAux = iota // no error
-	VDevAuxOpenFailed                  // ldi_open_*() or vn_open() failed
-	VDevAuxCorruptData                 // bad label or disk contents
-	VDevAuxNoReplicas                  // insufficient number of replicas
-	VDevAuxBadGUIDSum                  // vdev guid sum doesn't match
-	VDevAuxTooSmall                    // vdev size is too small
-	VDevAuxBadLabel                    // the label is OK but invalid
-	VDevAuxVersionNewer                // on-disk version is too new
-	VDevAuxVersionOlder                // on-disk version is too old
-	VDevAuxUnsupFeat                   // unsupported features
-	VDevAuxSpared                      // hot spare used in another pool
-	VDevAuxErrExceeded                 // too many errors
-	VDevAuxIOFailure                   // experienced I/O failure
-	VDevAuxBadLog                      // cannot read log chain(s)
-	VDevAuxExternal                    // external diagnosis
-	VDevAuxSplitPool                   // vdev was split off into another pool
+	VDevAuxNone         VDevAux = C.VDEV_AUX_NONE          // no error
+	VDevAuxOpenFailed           = C.VDEV_AUX_OPEN_FAILED   // ldi_open_*() or vn_open() failed
+	VDevAuxCorruptData          = C.VDEV_AUX_CORRUPT_DATA  // bad label or disk contents
+	VDevAuxNoReplicas           = C.VDEV_AUX_NO_REPLICAS   // insufficient number of replicas
+	VDevAuxBadGUIDSum           = C.VDEV_AUX_BAD_GUID_SUM  // vdev guid sum doesn't match
+	VDevAuxTooSmall             = C.VDEV_AUX_TOO_SMALL     // vdev size is too small
+	VDevAuxBadLabel             = C.VDEV_AUX_BAD_LABEL     // the label is OK but invalid
+	VDevAuxVersionNewer         = C.VDEV_AUX_VERSION_NEWER // on-disk version is too new
+	VDevAuxVersionOlder         = C.VDEV_AUX_VERSION_OLDER // on-disk version is too old
+	VDevAuxUnsupFeat            = C.VDEV_AUX_UNSUP_FEAT    // unsupported features
+	VDevAuxSpared               = C.VDEV_AUX_SPARED        // hot spare used in another pool
+	VDevAuxErrExceeded          = C.VDEV_AUX_ERR_EXCEEDED  // too many errors
+	VDevAuxIOFailure            = C.VDEV_AUX_IO_FAILURE    // experienced I/O failure
+	VDevAuxBadLog               = C.VDEV_AUX_BAD_LOG       // cannot read log chain(s)
+	VDevAuxExternal             = C.VDEV_AUX_EXTERNAL      // external diagnosis
+	VDevAuxSplitPool            = C.VDEV_AUX_SPLIT_POOL    // vdev was split off into another pool
 )
 
-// Property ZFS pool or dataset property value
-type Property struct {
-	Value  string
-	Source string
-}
+const (
+	// This is C.ZPROP_INVAL, which is #defined to -1 (which is why we can't use that symbol
+	// directly).  N.B.: In many sitautions, indicates a user property.
+	PropInvalid Prop = ^Prop(0)
+)
 
 // Pool properties. Enumerates available ZFS pool properties. Use it to access
 // pool properties either to read or set soecific property.
 const (
-	PoolPropName Prop = iota
-	PoolPropSize
-	PoolPropCapacity
-	PoolPropAltroot
-	PoolPropHealth
-	PoolPropGUID
-	PoolPropVersion
-	PoolPropBootfs
-	PoolPropDelegation
-	PoolPropAutoreplace
-	PoolPropCachefile
-	PoolPropFailuremode
-	PoolPropListsnaps
-	PoolPropAutoexpand
-	PoolPropDedupditto
-	PoolPropDedupratio
-	PoolPropFree
-	PoolPropAllocated
-	PoolPropReadonly
-	PoolPropAshift
-	PoolPropComment
-	PoolPropExpandsz
-	PoolPropFreeing
-	PoolPropFragmentaion
-	PoolPropLeaked
-	PoolPropMaxBlockSize
-	PoolPropTName
-	PoolNumProps
+	PoolPropName          Prop = C.ZPOOL_PROP_NAME
+	PoolPropSize               = C.ZPOOL_PROP_SIZE
+	PoolPropCapacity           = C.ZPOOL_PROP_CAPACITY
+	PoolPropAltroot            = C.ZPOOL_PROP_ALTROOT
+	PoolPropHealth             = C.ZPOOL_PROP_HEALTH
+	PoolPropGUID               = C.ZPOOL_PROP_GUID
+	PoolPropVersion            = C.ZPOOL_PROP_VERSION
+	PoolPropBootfs             = C.ZPOOL_PROP_BOOTFS
+	PoolPropDelegation         = C.ZPOOL_PROP_DELEGATION
+	PoolPropAutoreplace        = C.ZPOOL_PROP_AUTOREPLACE
+	PoolPropCachefile          = C.ZPOOL_PROP_CACHEFILE
+	PoolPropFailuremode        = C.ZPOOL_PROP_FAILUREMODE
+	PoolPropListsnaps          = C.ZPOOL_PROP_LISTSNAPS
+	PoolPropAutoexpand         = C.ZPOOL_PROP_AUTOEXPAND
+	PoolPropDedupditto         = C.ZPOOL_PROP_DEDUPDITTO
+	PoolPropDedupratio         = C.ZPOOL_PROP_DEDUPRATIO
+	PoolPropFree               = C.ZPOOL_PROP_FREE
+	PoolPropAllocated          = C.ZPOOL_PROP_ALLOCATED
+	PoolPropReadonly           = C.ZPOOL_PROP_READONLY
+	PoolPropAshift             = C.ZPOOL_PROP_ASHIFT
+	PoolPropComment            = C.ZPOOL_PROP_COMMENT
+	PoolPropExpandsz           = C.ZPOOL_PROP_EXPANDSZ
+	PoolPropFreeing            = C.ZPOOL_PROP_FREEING
+	PoolPropFragmentation      = C.ZPOOL_PROP_FRAGMENTATION
+	PoolPropLeaked             = C.ZPOOL_PROP_LEAKED
+	PoolPropMaxBlockSize       = C.ZPOOL_PROP_MAXBLOCKSIZE
+	PoolPropTName              = C.ZPOOL_PROP_TNAME
+	// PoolPropMaxNodeSize        = C.ZPOOL_PROP_MAXNODESIZE
+	PoolNumProps = C.ZPOOL_NUM_PROPS
 )
 
 /*
@@ -309,81 +320,83 @@ const (
  * the property table in module/zcommon/zfs_prop.c.
  */
 const (
-	DatasetPropType Prop = iota
-	DatasetPropCreation
-	DatasetPropUsed
-	DatasetPropAvailable
-	DatasetPropReferenced
-	DatasetPropCompressratio
-	DatasetPropMounted
-	DatasetPropOrigin
-	DatasetPropQuota
-	DatasetPropReservation
-	DatasetPropVolsize
-	DatasetPropVolblocksize
-	DatasetPropRecordsize
-	DatasetPropMountpoint
-	DatasetPropSharenfs
-	DatasetPropChecksum
-	DatasetPropCompression
-	DatasetPropAtime
-	DatasetPropDevices
-	DatasetPropExec
-	DatasetPropSetuid
-	DatasetPropReadonly
-	DatasetPropZoned
-	DatasetPropSnapdir
-	DatasetPropPrivate /* not exposed to user, temporary */
-	DatasetPropAclinherit
-	DatasetPropCreatetxg /* not exposed to the user */
-	DatasetPropName      /* not exposed to the user */
-	DatasetPropCanmount
-	DatasetPropIscsioptions /* not exposed to the user */
-	DatasetPropXattr
-	DatasetPropNumclones /* not exposed to the user */
-	DatasetPropCopies
-	DatasetPropVersion
-	DatasetPropUtf8only
-	DatasetPropNormalize
-	DatasetPropCase
-	DatasetPropVscan
-	DatasetPropNbmand
-	DatasetPropSharesmb
-	DatasetPropRefquota
-	DatasetPropRefreservation
-	DatasetPropGUID
-	DatasetPropPrimarycache
-	DatasetPropSecondarycache
-	DatasetPropUsedsnap
-	DatasetPropUsedds
-	DatasetPropUsedchild
-	DatasetPropUsedrefreserv
-	DatasetPropUseraccounting /* not exposed to the user */
-	DatasetPropStmfShareinfo  /* not exposed to the user */
-	DatasetPropDeferDestroy
-	DatasetPropUserrefs
-	DatasetPropLogbias
-	DatasetPropUnique   /* not exposed to the user */
-	DatasetPropObjsetid /* not exposed to the user */
-	DatasetPropDedup
-	DatasetPropMlslabel
-	DatasetPropSync
-	DatasetPropRefratio
-	DatasetPropWritten
-	DatasetPropClones
-	DatasetPropLogicalused
-	DatasetPropLogicalreferenced
-	DatasetPropInconsistent /* not exposed to the user */
-	DatasetPropSnapdev
-	DatasetPropAcltype
-	DatasetPropSelinuxContext
-	DatasetPropSelinuxFsContext
-	DatasetPropSelinuxDefContext
-	DatasetPropSelinuxRootContext
-	DatasetPropRelatime
-	DatasetPropRedundantMetadata
-	DatasetPropOverlay
-	DatasetNumProps
+	DatasetPropType               Prop = C.ZFS_PROP_TYPE
+	DatasetPropCreation                = C.ZFS_PROP_CREATION
+	DatasetPropUsed                    = C.ZFS_PROP_USED
+	DatasetPropAvailable               = C.ZFS_PROP_AVAILABLE
+	DatasetPropReferenced              = C.ZFS_PROP_REFERENCED
+	DatasetPropCompressratio           = C.ZFS_PROP_COMPRESSRATIO
+	DatasetPropMounted                 = C.ZFS_PROP_MOUNTED
+	DatasetPropOrigin                  = C.ZFS_PROP_ORIGIN
+	DatasetPropQuota                   = C.ZFS_PROP_QUOTA
+	DatasetPropReservation             = C.ZFS_PROP_RESERVATION
+	DatasetPropVolsize                 = C.ZFS_PROP_VOLSIZE
+	DatasetPropVolblocksize            = C.ZFS_PROP_VOLBLOCKSIZE
+	DatasetPropRecordsize              = C.ZFS_PROP_RECORDSIZE
+	DatasetPropMountpoint              = C.ZFS_PROP_MOUNTPOINT
+	DatasetPropSharenfs                = C.ZFS_PROP_SHARENFS
+	DatasetPropChecksum                = C.ZFS_PROP_CHECKSUM
+	DatasetPropCompression             = C.ZFS_PROP_COMPRESSION
+	DatasetPropAtime                   = C.ZFS_PROP_ATIME
+	DatasetPropDevices                 = C.ZFS_PROP_DEVICES
+	DatasetPropExec                    = C.ZFS_PROP_EXEC
+	DatasetPropSetuid                  = C.ZFS_PROP_SETUID
+	DatasetPropReadonly                = C.ZFS_PROP_READONLY
+	DatasetPropZoned                   = C.ZFS_PROP_ZONED
+	DatasetPropSnapdir                 = C.ZFS_PROP_SNAPDIR
+	DatasetPropPrivate                 = C.ZFS_PROP_PRIVATE /* not exposed to user, temporary */
+	DatasetPropAclinherit              = C.ZFS_PROP_ACLINHERIT
+	DatasetPropCreatetxg               = C.ZFS_PROP_CREATETXG /* not exposed to the user */
+	DatasetPropName                    = C.ZFS_PROP_NAME      /* not exposed to the user */
+	DatasetPropCanmount                = C.ZFS_PROP_CANMOUNT
+	DatasetPropIscsioptions            = C.ZFS_PROP_ISCSIOPTIONS /* not exposed to the user */
+	DatasetPropXattr                   = C.ZFS_PROP_XATTR
+	DatasetPropNumclones               = C.ZFS_PROP_NUMCLONES /* not exposed to the user */
+	DatasetPropCopies                  = C.ZFS_PROP_COPIES
+	DatasetPropVersion                 = C.ZFS_PROP_VERSION
+	DatasetPropUtf8only                = C.ZFS_PROP_UTF8ONLY
+	DatasetPropNormalize               = C.ZFS_PROP_NORMALIZE
+	DatasetPropCase                    = C.ZFS_PROP_CASE
+	DatasetPropVscan                   = C.ZFS_PROP_VSCAN
+	DatasetPropNbmand                  = C.ZFS_PROP_NBMAND
+	DatasetPropSharesmb                = C.ZFS_PROP_SHARESMB
+	DatasetPropRefquota                = C.ZFS_PROP_REFQUOTA
+	DatasetPropRefreservation          = C.ZFS_PROP_REFRESERVATION
+	DatasetPropGUID                    = C.ZFS_PROP_GUID
+	DatasetPropPrimarycache            = C.ZFS_PROP_PRIMARYCACHE
+	DatasetPropSecondarycache          = C.ZFS_PROP_SECONDARYCACHE
+	DatasetPropUsedsnap                = C.ZFS_PROP_USEDSNAP
+	DatasetPropUsedds                  = C.ZFS_PROP_USEDDS
+	DatasetPropUsedchild               = C.ZFS_PROP_USEDCHILD
+	DatasetPropUsedrefreserv           = C.ZFS_PROP_USEDREFRESERV
+	DatasetPropUseraccounting          = C.ZFS_PROP_USERACCOUNTING /* not exposed to the user */
+	DatasetPropStmfShareinfo           = C.ZFS_PROP_STMF_SHAREINFO /* not exposed to the user */
+	DatasetPropDeferDestroy            = C.ZFS_PROP_DEFER_DESTROY
+	DatasetPropUserrefs                = C.ZFS_PROP_USERREFS
+	DatasetPropLogbias                 = C.ZFS_PROP_LOGBIAS
+	DatasetPropUnique                  = C.ZFS_PROP_UNIQUE   /* not exposed to the user */
+	DatasetPropObjsetid                = C.ZFS_PROP_OBJSETID /* not exposed to the user */
+	DatasetPropDedup                   = C.ZFS_PROP_DEDUP
+	DatasetPropMlslabel                = C.ZFS_PROP_MLSLABEL
+	DatasetPropSync                    = C.ZFS_PROP_SYNC
+	DatasetPropRefratio                = C.ZFS_PROP_REFRATIO
+	DatasetPropWritten                 = C.ZFS_PROP_WRITTEN
+	DatasetPropClones                  = C.ZFS_PROP_CLONES
+	DatasetPropLogicalused             = C.ZFS_PROP_LOGICALUSED
+	DatasetPropLogicalreferenced       = C.ZFS_PROP_LOGICALREFERENCED
+	DatasetPropInconsistent            = C.ZFS_PROP_INCONSISTENT /* not exposed to the user */
+	DatasetPropSnapdev                 = C.ZFS_PROP_SNAPDEV
+	DatasetPropAcltype                 = C.ZFS_PROP_ACLTYPE
+	DatasetPropSelinuxContext          = C.ZFS_PROP_SELINUX_CONTEXT
+	DatasetPropSelinuxFsContext        = C.ZFS_PROP_SELINUX_FSCONTEXT
+	DatasetPropSelinuxDefContext       = C.ZFS_PROP_SELINUX_DEFCONTEXT
+	DatasetPropSelinuxRootContext      = C.ZFS_PROP_SELINUX_ROOTCONTEXT
+	DatasetPropRelatime                = C.ZFS_PROP_RELATIME
+	DatasetPropRedundantMetadata       = C.ZFS_PROP_REDUNDANT_METADATA
+	DatasetPropOverlay                 = C.ZFS_PROP_OVERLAY
+	// DatasetPropPrevSnap                = C.ZFS_PROP_PREV_SNAP
+	// DatasetPropReceiveResumeToken      = C.ZFS_PROP_RECEIVE_RESUME_TOKEN
+	DatasetNumProps = C.ZFS_NUM_PROPS
 )
 
 // LastError get last underlying libzfs error description if any

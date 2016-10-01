@@ -1,8 +1,11 @@
-package nvpair
+package zfs
 
 //#include <libnvpair.h>
 import "C"
-import "syscall"
+import (
+	"strings"
+	"syscall"
+)
 
 // NVList corresponds to nvlist_t.
 //
@@ -24,6 +27,10 @@ func NewNVList(flags NVFlags) *NVList {
 		panic(syscall.Errno(errno))
 	}
 	return (*NVList)(l)
+}
+
+func NVListFromPointer(ptr *C.nvlist_t) *NVList {
+	return (*NVList)(ptr)
 }
 
 func (l *NVList) Free() {
@@ -49,4 +56,20 @@ func (l *NVList) Next(p *NVPair) *NVPair {
 	nc := (*C.nvlist_t)(l)
 	nvpC := (*C.nvpair_t)(p)
 	return (*NVPair)(C.nvlist_next_nvpair(nc, nvpC))
+}
+
+func (l *NVList) String() string {
+	var parts []string
+
+	var p *NVPair
+	for {
+		p = l.Next(p)
+		if p == nil {
+			break
+		}
+
+		parts = append(parts, p.ValueString())
+	}
+
+	return strings.Join(parts, ", ")
 }

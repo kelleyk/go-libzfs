@@ -1,4 +1,4 @@
-package nvpair
+package zfs
 
 /*
 #cgo CFLAGS: -I /usr/include/libzfs -I /usr/include/libspl -DHAVE_IOCTL_IN_SYS_IOCTL_H
@@ -8,6 +8,7 @@ package nvpair
 */
 import "C"
 import (
+	"fmt"
 	"syscall"
 	"unsafe"
 )
@@ -47,6 +48,18 @@ func (p *NVPair) Name() string {
 	// See definition of NVP_NAME: https://github.com/zfsonlinux/zfs/blob/master/include/sys/nvpair.h#L116
 	namePtr := uintptr(unsafe.Pointer(p)) + C.sizeof_nvpair_t
 	return C.GoString((*C.char)(unsafe.Pointer(namePtr)))
+}
+
+func (p *NVPair) ValueString() string {
+	v := p.Value()
+	switch v := v.(type) {
+	case string:
+		return v
+	case fmt.Stringer:
+		return v.String()
+	default:
+		panic("unable to convert value to string")
+	}
 }
 
 // XXX: This function borrowed from nathan7/go-nvpair.
